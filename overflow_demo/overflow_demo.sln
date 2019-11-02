@@ -1,0 +1,40 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2013
+VisualStudioVersion = 12.0.40629.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "vulnerable_app", "vulnerable_app\vulnerable_app.vcxproj", "{E71BCAD3-F9AD-41E6-8AB6-8D9B0593EB59}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "shellcode_test", "shellcode_test\shellcode_test.vcxproj", "{4EE57BC0-AC47-443C-8612-D5D931889400}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "rop_test", "rop_test\rop_test.vcxproj", "{861E319E-973B-4E0A-AFAA-4ECC021BA8FF}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "heap_spray_test", "heap_spray_test\heap_spray_test.vcxproj", "{267ECF74-C425-4C60-AD3D-EEC2EEF7353A}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{E71BCAD3-F9AD-41E6-8AB6-8D9B0593EB59}.Debug|Win32.ActiveCfg = Debug|Win32
+		{E71BCAD3-F9AD-41E6-8AB6-8D9B0593EB59}.Debug|Win32.Build.0 = Debug|Win32
+		{E71BCAD3-F9AD-41E6-8AB6-8D9B0593EB59}.Release|Win32.ActiveCfg = Release|Win32
+		{E71BCAD3-F9AD-41E6-8AB6-8D9B0593EB59}.Release|Win32.Build.0 = Release|Win32
+		{4EE57BC0-AC47-443C-8612-D5D931889400}.Debug|Win32.ActiveCfg = Debug|Win32
+		{4EE57BC0-AC47-443C-8612-D5D931889400}.Debug|Win32.Build.0 = Debug|Win32
+		{4EE57BC0-AC47-443C-8612-D5D931889400}.Release|Win32.ActiveCfg = Release|Win32
+		{4EE57BC0-AC47-443C-8612-D5D931889400}.Release|Win32.Build.0 = Release|Win32
+		{861E319E-973B-4E0A-AFAA-4ECC021BA8FF}.Debug|Win32.ActiveCfg = Debug|Win32
+		{861E319E-973B-4E0A-AFAA-4ECC021BA8FF}.Debug|Win32.Build.0 = Debug|Win32
+		{861E319E-973B-4E0A-AFAA-4ECC021BA8FF}.Release|Win32.ActiveCfg = Release|Win32
+		{861E319E-973B-4E0A-AFAA-4ECC021BA8FF}.Release|Win32.Build.0 = Release|Win32
+		{267ECF74-C425-4C60-AD3D-EEC2EEF7353A}.Debug|Win32.ActiveCfg = Debug|Win32
+		{267ECF74-C425-4C60-AD3D-EEC2EEF7353A}.Debug|Win32.Build.0 = Debug|Win32
+		{267ECF74-C425-4C60-AD3D-EEC2EEF7353A}.Release|Win32.ActiveCfg = Release|Win32
+		{267ECF74-C425-4C60-AD3D-EEC2EEF7353A}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

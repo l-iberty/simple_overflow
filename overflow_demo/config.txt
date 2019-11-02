@@ -1,0 +1,6 @@
+## 允许栈溢出，但不允许在栈上执行代码
+- C/C++ -> Code Generation -> Security Check -> Disable Security Check
+- Linker -> Advanced -> Data Executation Prevention(DEP) -> Yes
+## 禁用优化，生成调试信息，便于在Release下调试
+- C/C++ -> Optimization -> Optimization -> Diabled
+- Linker -> Debugging -> Generate Debug Info -> Yes
