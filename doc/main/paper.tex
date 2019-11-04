@@ -7,7 +7,7 @@
 \usepackage{listings}
 \usepackage{fancyhdr}
 \usepackage{booktabs}
-\usepackage{multicol}
+\usepackage{float}
 
 %\begin{figure}[htbp]
 %	\centering\includegraphics[height=9cm]{images/pic.png}
@@ -20,7 +20,6 @@
 %\end{lstlisting}
 
 % ----------------------------------------- Document -----------------------------------------
-
 \begin{document}
 
 % ----------------------------------------- 目录 -----------------------------------------
@@ -45,19 +44,22 @@
 \end{itemize}
 如果精确控制拷贝到缓冲区的字节，那么就可以将函数的返回地址覆盖成恶意代码的起始地址，从而劫持程序控制流，执行恶意代码。
 
+\section{Shellcode原理}
+缓冲区溢出的制造者最终是希望目标机器运行自己需要的机器指令。攻击者定位在一个可供溢出的局部变量，然后向程序传递一个设计好的长字符串，将设计好的shellcode机器码编码进其中，使得缓冲区溢出后将函数的返回地址覆盖成shellcode的地址，以此获得shellcode的执行权。事实上，只有当缓冲区所在的内存页面是可执行的时候才能直接在上面执行shellcode，否则试图执行shellcode时会触发页面错误异常，导致程序崩溃。
+
 \chapter{关键技术研究}
 \section{栈破坏检测/栈安全检查}
 这是一种防御栈溢出的技术，它通过在函数的返回地址前保存一个随机数x，并在执行``RET''之前检测该随机数x是否被修改，从而实现溢出检测。该技术的原理是，如果试图在栈上进行缓冲区溢出并覆盖函数的返回地址，那么就必然会将随机数x覆盖掉。如果检测到随机数x被修改，那么就说明发生了栈溢出。
 
 \section{数据执行保护(DEP)}
-如果开启DEP，那么就无法执行栈上的代码，使得直接将shellcode注入到栈上的方法变得不可行。
+DEP的原理是将堆栈所在的内存页面设置为不可执行。如果开启DEP，那么任何试图执行栈上的shellcode的操作都会触发异常并导致程序崩溃。
 
 \section{面向返回的编程(ROP)}
 为了突破DEP，ROP技术应运而生。由于栈上的shellcode不可执行，所以攻击者扫描已有的动态链接库和可执行文件，提取出可以利用的指令片段(gadget)，这些指令片段均以ret指令结尾，即用ret指令实现指令片段执行流的衔接。ROP方法技巧性很强，那它能完全胜任所有攻击吗？返回语句前的指令是否会因为功能单一，而无法实施预期的攻击目标呢？经充分研究，现已证明ROP方法是图灵完备的，也就是说，ROP可以实现任何逻辑功能。\par
 另外，ROP技术能够被实现的重要原因还在于x86、x64是复杂指令集(CISC)，指令密集性很高，存在大量的变长指令，几乎可以从任何地址开始译码而得到不同的指令序列。
 
 \section{地址空间布局随机化(ASLR)}
-ASLR是用于防御ROP技术的。ROP技术一般需要在payload中对来自其他模块的指令片段(gadget)的地址进行硬编码，如果系统重启，那么由于所需模块加载基地址的变化，先前的ROP链就会失效。如果试图动态地查找模块的基地址，那么又会面临DEP，所以DEP和ASLR形成了一个闭环，能够在很大程度上缓解栈溢出攻击。
+ASLR是用于防御ROP技术的。ROP技术一般需要对来自其他模块的指令片段(gadget)的地址进行硬编码，如果系统重启，那么由于所需模块加载基地址的变化，先前的ROP链就会失效。如果试图动态地查找模块的基地址，那么又会面临DEP，所以DEP和ASLR形成了一个闭环，能够在很大程度上缓解栈溢出攻击。
 
 \chapter{系统实现}
 \section{shellcode设计}
@@ -105,7 +107,7 @@ typedef struct _PEB_LDR_DATA
 } PEB_LDR_DATA,*PPEB_LDR_DATA;
 \end{lstlisting}
 
-PEB\_LDR\_DATA结构偏移+0x0c处是一个LIST\_ENTRY结构，PEB\_LDR\_DATA::InLoadOrderModuleList.Flink指向一个双向循环链表的头结点，该双向循环链表按照模块的加载顺序将记录模块信息的LDR\_MODULE结构连接起来。LDR\_MODULE结构如下：
+PEB\_LDR\_DATA结构偏移+0x0c处是一个LIST\_ENTRY结构，PEB\_LDR\_DATA::\\InLoadOrderModuleList.Flink指向一个双向循环链表的头结点，该双向循环链表按照模块的加载顺序将记录模块信息的LDR\_MODULE结构连接起来。LDR\_MODULE结构如下：
 
 \begin{lstlisting}[language=C++, basicstyle=\ttfamily\tiny, numbers=left, numberstyle=\tiny, keywordstyle=\color{blue!70}, commentstyle=\color{red!50!green!50!blue!50}, frame=shadowbox, rulesepcolor=\color{red!20!green!20!blue!20}]
 typedef struct _LDR_MODULE {
@@ -371,148 +373,87 @@ BOOL VirtualProtect(
 
 VirtualProtect()返回后的栈帧如图\ref{fig:rop_chain_s21}所示；EIP的内容是``返回地址''0x5a58ed02，那里保存着两条指令``POP EBP''和``RET''，于是就会开始执行``POP EBP''，让ESP跳过4字节，得到如图\ref{fig:rop_chain_s22}所示的栈帧。接着执行``POP EBP''后面的``RET''就会使得(EIP)=0x5a5bac78——``PUSH ESP, RET''指令的地址，同时ESP+=4，得到如图\ref{fig:rop_chain_s23}所示的栈帧。然后执行``PUSH ESP''后再``RET''，就会从图\ref{fig:rop_chain_s23}中ESP所指向的地方开始执行，此时ESP和EIP的内容是一样的，如图\ref{fig:rop_chain_s24}所示。所以，如果把shellcode放到这段ROP链后面，那么ROP链执行结束后就可以开始执行shellcode。\par
 
+\renewcommand{\thesubfigure}{(\arabic{subfigure})}
 \begin{figure}[htbp]
-	\centering\includegraphics[height=9cm]{images/rop_chain_s1.png}
-	\caption{ROP链执行过程分析（1）}
-	\label{fig:rop_chain_s1}
+	\centering
+	\subfigure[]{ % []的作用是生成子图标题(a),(b),(c),... 如果希望生成"(a)test"这样的标题，就在[]内填入test. 默认使用小写字母"(a)"的形式, 但可以自定义，比如这里我将其定义成阿拉伯数字"(1)"的形式
+		\includegraphics[width=0.22\linewidth]{images/rop_chain_s1.png}
+		\label{fig:rop_chain_s1}}
+	\subfigure[]{
+		\includegraphics[width=0.22\linewidth]{images/rop_chain_s3.png}
+		\label{fig:rop_chain_s2}}
+	\subfigure[]{
+		\includegraphics[width=0.22\linewidth]{images/rop_chain_s3.png}
+		\label{fig:rop_chain_s3}}
+	\subfigure[]{
+		\includegraphics[width=0.22\linewidth]{images/rop_chain_s4.png}
+		\label{fig:rop_chain_s4}}
+	\subfigure[]{
+		\includegraphics[width=0.22\linewidth]{images/rop_chain_s5.png}
+		\label{fig:rop_chain_s5}}
+	\subfigure[]{
+		\includegraphics[width=0.22\linewidth]{images/rop_chain_s6.png}
+		\label{fig:rop_chain_s6}}
+	\subfigure[]{
+		\includegraphics[width=0.22\linewidth]{images/rop_chain_s7.png}
+		\label{fig:rop_chain_s7}}
+	\subfigure[]{
+		\includegraphics[width=0.22\linewidth]{images/rop_chain_s8.png}
+		\label{fig:rop_chain_s8}}
+	\subfigure[]{
+		\includegraphics[width=0.22\linewidth]{images/rop_chain_s9.png}
+		\label{fig:rop_chain_s9}}
+	\subfigure[]{
+		\includegraphics[width=0.22\linewidth]{images/rop_chain_s10.png}
+		\label{fig:rop_chain_s10}}
+	\subfigure[]{
+		\includegraphics[width=0.22\linewidth]{images/rop_chain_s11.png}
+		\label{fig:rop_chain_s11}}
+	\subfigure[]{
+		\includegraphics[width=0.22\linewidth]{images/rop_chain_s12.png}
+		\label{fig:rop_chain_s12}}
+	\caption{ROP链执行过程分析-1} % caption for entire figure
 \end{figure}
 
-\begin{figure}[htbp]
-	\centering\includegraphics[height=9cm]{images/rop_chain_s2.png}
-	\caption{ROP链执行过程分析（2）}
-	\label{fig:rop_chain_s2}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering\includegraphics[height=9cm]{images/rop_chain_s3.png}
-	\caption{ROP链执行过程分析（3）}
-	\label{fig:rop_chain_s3}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering\includegraphics[height=9cm]{images/rop_chain_s4.png}
-	\caption{ROP链执行过程分析（4）}
-	\label{fig:rop_chain_s4}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering\includegraphics[height=9cm]{images/rop_chain_s5.png}
-	\caption{ROP链执行过程分析（5）}
-	\label{fig:rop_chain_s5}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering\includegraphics[height=9cm]{images/rop_chain_s6.png}
-	\caption{ROP链执行过程分析（6）}
-	\label{fig:rop_chain_s6}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering\includegraphics[height=9cm]{images/rop_chain_s7.png}
-	\caption{ROP链执行过程分析（7）}
-	\label{fig:rop_chain_s7}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering\includegraphics[height=9cm]{images/rop_chain_s8.png}
-	\caption{ROP链执行过程分析（8）}
-	\label{fig:rop_chain_s8}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering\includegraphics[height=9cm]{images/rop_chain_s9.png}
-	\caption{ROP链执行过程分析（9）}
-	\label{fig:rop_chain_s9}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering\includegraphics[height=9cm]{images/rop_chain_s10.png}
-	\caption{ROP链执行过程分析（10）}
-	\label{fig:rop_chain_s10}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering\includegraphics[height=9cm]{images/rop_chain_s11.png}
-	\caption{ROP链执行过程分析（11）}
-	\label{fig:rop_chain_s11}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering\includegraphics[height=9cm]{images/rop_chain_s12.png}
-	\caption{ROP链执行过程分析（12）}
-	\label{fig:rop_chain_s12}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering\includegraphics[height=9cm]{images/rop_chain_s13.png}
-	\caption{ROP链执行过程分析（13）}
-	\label{fig:rop_chain_s13}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering\includegraphics[height=9cm]{images/rop_chain_s14.png}
-	\caption{ROP链执行过程分析（14）}
-	\label{fig:rop_chain_s14}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering\includegraphics[height=9cm]{images/rop_chain_s15.png}
-	\caption{ROP链执行过程分析（15）}
-	\label{fig:rop_chain_s15}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering\includegraphics[height=9cm]{images/rop_chain_s16.png}
-	\caption{ROP链执行过程分析（16）}
-	\label{fig:rop_chain_s16}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering\includegraphics[height=9cm]{images/rop_chain_s17.png}
-	\caption{ROP链执行过程分析（17）}
-	\label{fig:rop_chain_s17}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering\includegraphics[height=9cm]{images/rop_chain_s18.png}
-	\caption{ROP链执行过程分析（18）}
-	\label{fig:rop_chain_s18}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering\includegraphics[height=9cm]{images/rop_chain_s19.png}
-	\caption{ROP链执行过程分析（19）}
-	\label{fig:rop_chain_s19}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering\includegraphics[height=9cm]{images/rop_chain_s20.png}
-	\caption{ROP链执行过程分析（20）}
-	\label{fig:rop_chain_s20}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering\includegraphics[height=9cm]{images/rop_chain_s21.png}
-	\caption{ROP链执行过程分析（21）}
-	\label{fig:rop_chain_s21}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering\includegraphics[height=9cm]{images/rop_chain_s22.png}
-	\caption{ROP链执行过程分析（22）}
-	\label{fig:rop_chain_s22}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering\includegraphics[height=9cm]{images/rop_chain_s23.png}
-	\caption{ROP链执行过程分析（23）}
-	\label{fig:rop_chain_s23}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering\includegraphics[height=9cm]{images/rop_chain_s24.png}
-	\caption{ROP链执行过程分析（24）}
-	\label{fig:rop_chain_s24}
+\begin{figure}[H]
+	\centering
+	\subfigure[]{
+		\includegraphics[width=0.22\linewidth]{images/rop_chain_s13.png}
+		\label{fig:rop_chain_s13}}
+	\subfigure[]{
+		\includegraphics[width=0.22\linewidth]{images/rop_chain_s14.png}
+		\label{fig:rop_chain_s14}}
+	\subfigure[]{
+		\includegraphics[width=0.22\linewidth]{images/rop_chain_s15.png}
+		\label{fig:rop_chain_s15}}
+	\subfigure[]{
+		\includegraphics[width=0.22\linewidth]{images/rop_chain_s16.png}
+		\label{fig:rop_chain_s16}}
+	\subfigure[]{
+		\includegraphics[width=0.22\linewidth]{images/rop_chain_s17.png}
+		\label{fig:rop_chain_s17}}
+	\subfigure[]{
+		\includegraphics[width=0.22\linewidth]{images/rop_chain_s18.png}
+		\label{fig:rop_chain_s18}}
+	\subfigure[]{
+		\includegraphics[width=0.22\linewidth]{images/rop_chain_s19.png}
+		\label{fig:rop_chain_s19}}
+	\subfigure[]{
+		\includegraphics[width=0.22\linewidth]{images/rop_chain_s20.png}
+		\label{fig:rop_chain_s20}}
+	\subfigure[]{
+		\includegraphics[width=0.22\linewidth]{images/rop_chain_s21.png}
+		\label{fig:rop_chain_s21}}
+	\subfigure[]{
+		\includegraphics[width=0.22\linewidth]{images/rop_chain_s22.png}
+		\label{fig:rop_chain_s22}}
+	\subfigure[]{
+		\includegraphics[width=0.22\linewidth]{images/rop_chain_s23.png}
+		\label{fig:rop_chain_s23}}
+	\subfigure[]{
+		\includegraphics[width=0.22\linewidth]{images/rop_chain_s24.png}
+		\label{fig:rop_chain_s24}}
+	\caption{ROP链执行过程分析-2} % caption for entire figure
 \end{figure}
 
 \chapter{测试及分析}
@@ -555,43 +496,30 @@ int main()
 
 通过memcpy()向buf[]拷贝payload将发生栈溢出，最后main函数执行``RET''时就会跳转到ROP链的第一个gadget，如图\ref{fig:debug1}所示。当执行到那个跳转到VirtualProtect()的``JMP EAX''时，栈帧如图\ref{fig:debug2}所示，与之前的分析结果一致。继续单步，成功跳入VirtualProtect()，如图\ref{fig:debug3}所示。当ROP链执行结束后跳转到shellcode，如图\ref{fig:debug4}所示。shellcode最终执行到``CALL EAX''，准备system(``cmd'')函数调用，如图\ref{fig:debug5}。最后system(``cmd'')成功打开一个shell，如图\ref{fig:debug6}所示。
 
-\begin{figure}[htbp]
-	\centering\includegraphics[height=7cm]{images/debug1.png}
-	\caption{执行ROP链的第一个gadget}
-	\label{fig:debug1}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering\includegraphics[height=7cm]{images/debug2.png}
-	\caption{执行``JMP EAX''跳转到VirtualProtect()时的栈帧}
-	\label{fig:debug2}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering\includegraphics[height=7cm]{images/debug3.png}
-	\caption{跳转到VirtualProtect()}
-	\label{fig:debug3}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering\includegraphics[width=10cm]{images/debug4.png}
-	\caption{开始执行shellcode}
-	\label{fig:debug4}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering\includegraphics[width=10cm]{images/debug5.png}
-	\caption{准备调用system(``cmd'')}
-	\label{fig:debug5}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering\includegraphics[height=7cm]{images/debug6.png}
-	\caption{调用system(``cmd'')获得shell}
-	\label{fig:debug6}
+\begin{figure}
+	\centering
+	\subfigure[]{
+		\includegraphics[width=0.4\linewidth]{images/debug1.png}
+		\label{fig:debug1}}
+	\subfigure[]{
+		\includegraphics[width=0.4\linewidth]{images/debug2.png}
+		\label{fig:debug2}}
+	\subfigure[]{
+		\includegraphics[width=0.4\linewidth]{images/debug3.png}
+		\label{fig:debug3}}
+	\subfigure[]{
+		\includegraphics[width=0.4\linewidth]{images/debug4.png}
+		\label{fig:debug4}}
+	\subfigure[]{
+		\includegraphics[width=0.4\linewidth]{images/debug5.png}
+		\label{fig:debug5}}
+	\subfigure[]{
+		\includegraphics[width=0.4\linewidth]{images/debug6.png}
+		\label{fig:debug6}}
+	\caption{调试分析-1}
 \end{figure}
 
 \chapter{总结及展望}
-本文叙述了缓冲区溢出攻击，特别是栈溢出攻击的基本原理及利用方法，演示了如何通过ROP突破DEP获得shellcode执行权，但该方法无法突破ASLR。在今后的学习中，笔者将继续研究栈溢出攻击技术，设法突破ASLR。
+本文叙述了缓冲区溢出攻击，特别是栈溢出攻击的基本原理及利用方法，演示了通过ROP技术调用VirtualProtect()来修改栈的页面属性，从而突破DEP获得shellcode执行权的整个过程，但该方法无法突破ASLR。笔者以为，DEP和ASLR形成了一个闭环：如果攻击者试图动态地获取系统库的加载基地址从而动态地生成ROP链，就必须先执行堆栈上的代码来实现模块加载地址的查找——但这会被DEP阻断。所以要突破DEP和ASLR就需要另辟蹊径。一种可能的思路是，攻击者通过别的方法（或者是别的漏洞）泄漏出构造ROP链所需的动态库加载基地址，然后重新编码shellcode进行溢出攻击。
 
 \end{document}
