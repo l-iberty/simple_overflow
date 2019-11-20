@@ -335,39 +335,39 @@ BOOL VirtualProtect(
 
 执行``RET''后，ESP+=4，栈帧如图\ref{fig:rop_chain_s2}所示；(EIP) = 0x5a58ed02， 指向``POP EBP''。\par
 
-执行``POP EBP''后，(ESP)被弹入EBP，使得\textbf{(EBP)=0x5a58ed02}；同时ESP+=4，栈帧如图\ref{fig:rop_chain_s3}所示；EIP指向``POP EBP''后面的``RET''。\par
+执行``POP EBP''后，[ESP]被弹入EBP，使得\textbf{(EBP)=0x5a58ed02}；同时ESP+=4，栈帧如图\ref{fig:rop_chain_s3}所示；EIP指向``POP EBP''后面的``RET''。\par
 
-执行``RET''，将(EIP)设置成(ESP)=0x5a582308，指向``POP EBX''；同时ESP+=4，栈帧如图\ref{fig:rop_chain_s4}所示。\par
+执行``RET''，将(EIP)设置成[ESP]=0x5a582308，指向``POP EBX''；同时ESP+=4，栈帧如图\ref{fig:rop_chain_s4}所示。\par
 
-执行``POP EBX''，将(ESP)=0x00000201弹入EBX，从而\textbf{(EBX)=0x00000201}；同时ESP+=4，栈帧如图\ref{fig:rop_chain_s5}所示；EIP指向``POP EBX''后面的``RET''。\par
+执行``POP EBX''，将[ESP]=0x00000201弹入EBX，从而\textbf{(EBX)=0x00000201}；同时ESP+=4，栈帧如图\ref{fig:rop_chain_s5}所示；EIP指向``POP EBX''后面的``RET''。\par
 
-执行``RET''，将(EIP)设置成(ESP)=0x5a58e734，指向``POP EDX''；同时ESP+=4，栈帧如图\ref{fig:rop_chain_s6}所示。\par
+执行``RET''，将(EIP)设置成[ESP]=0x5a58e734，指向``POP EDX''；同时ESP+=4，栈帧如图\ref{fig:rop_chain_s6}所示。\par
 
-执行``POP EDX''，将(ESP)=0x00000040弹入EDX，从而\textbf{(EDX)=0x00000040}；同时ESP+=4，栈帧如图\ref{fig:rop_chain_s7}所示；EIP指向``POP EDX''后面的``RET''。\par
+执行``POP EDX''，将[ESP]=0x00000040弹入EDX，从而\textbf{(EDX)=0x00000040}；同时ESP+=4，栈帧如图\ref{fig:rop_chain_s7}所示；EIP指向``POP EDX''后面的``RET''。\par
 
-执行``RET''，将(EIP)设置成(ESP)=0x5a58ec8c，指向``POP ECX''；同时ESP+=4，栈帧如图\ref{fig:rop_chain_s8}所示。\par
+执行``RET''，将(EIP)设置成[ESP]=0x5a58ec8c，指向``POP ECX''；同时ESP+=4，栈帧如图\ref{fig:rop_chain_s8}所示。\par
 
-执行``POP ECX''，将(ESP)=0x5a65e000弹入ECX，从而\textbf{(ECX)=0x5a65e000}；同时ESP+=4，栈帧如图\ref{fig:rop_chain_s9}所示；EIP指向``POP ECX''后面的``RET''。\par
+执行``POP ECX''，将[ESP]=0x5a65e000弹入ECX，从而\textbf{(ECX)=0x5a65e000}；同时ESP+=4，栈帧如图\ref{fig:rop_chain_s9}所示；EIP指向``POP ECX''后面的``RET''。\par
 
-执行``RET''，将(EIP)设置成(ESP)=0x5a58f0f3，指向``POP EDI''；同时ESP+=4，栈帧如图\ref{fig:rop_chain_s10}所示。\par
+执行``RET''，将(EIP)设置成[ESP]=0x5a58f0f3，指向``POP EDI''；同时ESP+=4，栈帧如图\ref{fig:rop_chain_s10}所示。\par
 
-执行``POP EDI''，将(ESP)=0x5a58139b弹入EDI，从而\textbf{(EDI)=0x5a58139b}（这里，EDI保存了一条``RET''指令的地址），同时ESP=+4，栈帧如图\ref{fig:rop_chain_s11}所示；EIP指向``POP EDI''后面的``RET''。\par
+执行``POP EDI''，将[ESP]=0x5a58139b弹入EDI，从而\textbf{(EDI)=0x5a58139b}（这里，EDI保存了一条``RET''指令的地址），同时ESP=+4，栈帧如图\ref{fig:rop_chain_s11}所示；EIP指向``POP EDI''后面的``RET''。\par
 
-执行``RET''，将(EIP)设置成(ESP)=0x5a58f74a，指向``POP ESI''；同时ESP+=4，栈帧如图\ref{fig:rop_chain_s12}所示。\par
+执行``RET''，将(EIP)设置成[ESP]=0x5a58f74a，指向``POP ESI''；同时ESP+=4，栈帧如图\ref{fig:rop_chain_s12}所示。\par
 
-执行``POP ESI''，将(ESP)=0x5a58efd7弹入ESI，从而\textbf{(ESI)=0x5a58efd7}（这里，ESI保存了一条``JMP EAX''指令的地址），同时ESP=+4，栈帧如图\ref{fig:rop_chain_s13}所示；EIP指向``POP ESI''后面的``RET''。\par
+执行``POP ESI''，将[ESP]=0x5a58efd7弹入ESI，从而\textbf{(ESI)=0x5a58efd7}（这里，ESI保存了一条``JMP EAX''指令的地址），同时ESP=+4，栈帧如图\ref{fig:rop_chain_s13}所示；EIP指向``POP ESI''后面的``RET''。\par
 
-执行``RET''，将(EIP)设置成(ESP)=0x5a58469c，指向``POP EAX''；同时ESP+=4，栈帧如图\ref{fig:rop_chain_s14}所示。\par
+执行``RET''，将(EIP)设置成[ESP]=0x5a58469c，指向``POP EAX''；同时ESP+=4，栈帧如图\ref{fig:rop_chain_s14}所示。\par
 
-执行``POP EAX''，将(ESP)=0x76b743ce弹入EAX，从而\textbf{(EAX)=0x76b743ce}（这里，EAX保存了Kernel32.DLL中VirtualProtect()的入口地址），同时ESP=+4，栈帧如图\ref{fig:rop_chain_s15}所示；EIP指向``POP EAX''后面的``RET''。\par
+执行``POP EAX''，将[ESP]=0x76b743ce弹入EAX，从而\textbf{(EAX)=0x76b743ce}（这里，EAX保存了Kernel32.DLL中VirtualProtect()的入口地址），同时ESP=+4，栈帧如图\ref{fig:rop_chain_s15}所示；EIP指向``POP EAX''后面的``RET''。\par
 
-执行``RET''，将(EIP)设置成(ESP)=0x5a5846a0，指向``POPAD''；同时ESP+=4，栈帧如图\ref{fig:rop_chain_s16}所示。\par
+执行``RET''，将(EIP)设置成[ESP]=0x5a5846a0，指向``POPAD''；同时ESP+=4，栈帧如图\ref{fig:rop_chain_s16}所示。\par
 
 最关键的一步，执行``PUSHAD''，该指令执行结束后栈帧如图\ref{fig:rop_chain_s17}所示。\par
 
-接着执行``PUSHAD''后面的``RET''，将(EIP)设置成(ESP)=0x5a58139b，指向``RET''；同时ESP+=4，栈帧如图\ref{fig:rop_chain_s18}所示。\par
+接着执行``PUSHAD''后面的``RET''，将(EIP)设置成[ESP]=0x5a58139b，指向``RET''；同时ESP+=4，栈帧如图\ref{fig:rop_chain_s18}所示。\par
 
-执行``RET''，将(EIP)设置成(ESP)=0x5a58efd7，指向``JMP EAX''（\textbf{注意到当前EAX的内容是VirtualProtect()的入口地址0x76b743ce}）；同时ESP+=4，栈帧如图\ref{fig:rop_chain_s19}所示。\par
+执行``RET''，将(EIP)设置成[ESP]=0x5a58efd7，指向``JMP EAX''（\textbf{注意到当前EAX的内容是VirtualProtect()的入口地址0x76b743ce}）；同时ESP+=4，栈帧如图\ref{fig:rop_chain_s19}所示。\par
 
 执行``JMP EAX''就会跳转到VirtualProtect()。此时可以清晰的看到，VirtualProtect()的返回地址以及4个参数的布局，如图\ref{fig:rop_chain_s20}所示。\par
 
