@@ -9,8 +9,6 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "shellcode_test", "shellcode
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "rop_test", "rop_test\rop_test.vcxproj", "{861E319E-973B-4E0A-AFAA-4ECC021BA8FF}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "heap_spray_test", "heap_spray_test\heap_spray_test.vcxproj", "{267ECF74-C425-4C60-AD3D-EEC2EEF7353A}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -29,10 +27,6 @@ Global
 		{861E319E-973B-4E0A-AFAA-4ECC021BA8FF}.Debug|Win32.Build.0 = Debug|Win32
 		{861E319E-973B-4E0A-AFAA-4ECC021BA8FF}.Release|Win32.ActiveCfg = Release|Win32
 		{861E319E-973B-4E0A-AFAA-4ECC021BA8FF}.Release|Win32.Build.0 = Release|Win32
-		{267ECF74-C425-4C60-AD3D-EEC2EEF7353A}.Debug|Win32.ActiveCfg = Debug|Win32
-		{267ECF74-C425-4C60-AD3D-EEC2EEF7353A}.Debug|Win32.Build.0 = Debug|Win32
-		{267ECF74-C425-4C60-AD3D-EEC2EEF7353A}.Release|Win32.ActiveCfg = Release|Win32
-		{267ECF74-C425-4C60-AD3D-EEC2EEF7353A}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
